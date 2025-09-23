@@ -60,6 +60,28 @@ main(int argc, char *argv[])
 void
 memdump(char *fmt, char *data)
 {
-  // Your code here.
-
+    char *p = data;
+    
+    for(int i = 0; fmt[i] != '\0'; i++) {
+        if(fmt[i] == 'i') {  // 32-bit integer (4 bytes)
+            printf("%d\n", *(int*)p);
+            p += 4;
+        } else if(fmt[i] == 'p') {  // 64-bit pointer (8 bytes) - hex
+            printf("0x%x\n", (uint)*(uint64*)p);
+            p += 8;
+        } else if(fmt[i] == 'h') {  // 16-bit integer (2 bytes)
+            printf("%d\n", *(short*)p);
+            p += 2;
+        } else if(fmt[i] == 'c') {  // 8-bit character (1 byte)
+            printf("%c\n", *p);
+            p += 1;
+        } else if(fmt[i] == 's') {  // 64-bit pointer to string
+            printf("%s\n", (char*)*(uint64*)p);
+            p += 8;
+        } else if(fmt[i] == 'S') {  // null-terminated string
+            printf("%s\n", p);
+            while(*p) p++;
+            p++;
+        }
+    }
 }
