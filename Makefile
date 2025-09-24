@@ -191,6 +191,7 @@ UPROGS=\
 	$U/_sixfive\
 	$U/_memdump\
 	$U/_find\
+	$U/_uptime\
 	$U/_stressfs\
 	$U/_usertests\
 	$U/_grind\
