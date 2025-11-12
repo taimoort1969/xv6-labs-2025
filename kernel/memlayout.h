@@ -1,47 +1,37 @@
-// Physical memory layout
+#ifndef MEMLAYOUT_H
+#define MEMLAYOUT_H
 
+// Physical memory layout
+//
 // qemu -machine virt is set up like this,
-// based on qemu's hw/riscv/virt.c:
+// based on https://github.com/qemu/qemu/blob/master/hw/riscv/virt.c
 //
 // 00001000 -- boot ROM, provided by qemu
-// 02000000 -- CLINT
-// 0C000000 -- PLIC
-// 10000000 -- uart0 
-// 10001000 -- virtio disk 
-// 80000000 -- qemu's boot ROM loads the kernel here,
-//             then jumps here.
-// unused RAM after 80000000.
+// 02000000 -- UART0 registers
+// 0x10001000 -- virtio disk interface
+// 0x0c000000 -- PLIC
+// 0x80000000 -- start of kernel
+// 0x88000000 -- end of RAM (PHYSTOP)
 
-// the kernel uses physical memory thus:
-// 80000000 -- entry.S, then kernel text and data
-// end -- start of kernel page allocation area
-// PHYSTOP -- end RAM used by the kernel
+#define UART0     0x10000000L
+#define VIRTIO0   0x10001000L
+#define PLIC      0x0c000000L
 
-// qemu puts UART registers here in physical memory.
-#define UART0 0x10000000L
-#define UART0_IRQ 10
+// PLIC memory-mapped register access macros
+#define PLIC_PRIORITY     (PLIC + 0x0)
+#define PLIC_PENDING      (PLIC + 0x1000)
+#define PLIC_MENABLE(hart)   (PLIC + 0x2000 + (hart) * 0x100)
+#define PLIC_SENABLE(hart)   (PLIC + 0x2080 + (hart) * 0x100)
+#define PLIC_MPRIORITY(hart) (PLIC + 0x200000 + (hart) * 0x2000)
+#define PLIC_SPRIORITY(hart) (PLIC + 0x201000 + (hart) * 0x2000)
+#define PLIC_MCLAIM(hart)    (PLIC + 0x200004 + (hart) * 0x2000)
+#define PLIC_SCLAIM(hart)    (PLIC + 0x201004 + (hart) * 0x2000)
 
-// virtio mmio interface
-#define VIRTIO0 0x10001000
+#define UART0_IRQ   10
 #define VIRTIO0_IRQ 1
 
-#ifdef LAB_NET
-#define E1000_IRQ 33
-#endif
-
-// qemu puts platform-level interrupt controller (PLIC) here.
-#define PLIC 0x0c000000L
-#define PLIC_PRIORITY (PLIC + 0x0)
-#define PLIC_PENDING (PLIC + 0x1000)
-#define PLIC_SENABLE(hart) (PLIC + 0x2080 + (hart)*0x100)
-#define PLIC_SPRIORITY(hart) (PLIC + 0x201000 + (hart)*0x2000)
-#define PLIC_SCLAIM(hart) (PLIC + 0x201004 + (hart)*0x2000)
-
-// the kernel expects there to be RAM
-// for use by the kernel and user pages
-// from physical address 0x80000000 to PHYSTOP.
-#define KERNBASE 0x80000000L
-#define PHYSTOP (KERNBASE + 128*1024*1024)
+#define KERNBASE  0x80000000L
+#define PHYSTOP   (KERNBASE + 128*1024*1024)
 
 // map the trampoline page to the highest address,
 // in both user and kernel space.
@@ -49,7 +39,7 @@
 
 // map kernel stacks beneath the trampoline,
 // each surrounded by invalid guard pages.
-#define KSTACK(p) (TRAMPOLINE - (p)*2*PGSIZE - 3*PGSIZE)
+#define KSTACK(p) (TRAMPOLINE - ((p)+1)*2*PGSIZE)
 
 // User memory layout.
 // Address zero first:
@@ -62,10 +52,13 @@
 //   TRAPFRAME (p->trapframe, used by the trampoline)
 //   TRAMPOLINE (the same page as in the kernel)
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)
-#ifdef LAB_PGTBL
-#define USYSCALL (TRAPFRAME - PGSIZE)
+#define USYSCALL  (TRAPFRAME - PGSIZE)
 
+#ifndef __ASSEMBLER__
 struct usyscall {
   int pid;  // Process ID
 };
-#endif
+#endif  // __ASSEMBLER__
+
+#endif  // MEMLAYOUT_H
+

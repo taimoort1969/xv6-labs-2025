@@ -66,6 +66,8 @@ void            ireclaim(int);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+void *superalloc(void);
+void superfree(void *);
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -169,6 +171,7 @@ int             uartgetc(void);
 // vm.c
 void            kvminit(void);
 void            kvminithart(void);
+int mappages_super(pagetable_t pagetable, uint64 va, uint64 pa, int perm);
 void            kvmmap(pagetable_t, uint64, uint64, uint64, int);
 int             mappages(pagetable_t, uint64, uint64, uint64, int);
 pagetable_t     uvmcreate(void);
@@ -184,6 +187,7 @@ int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 int             ismapped(pagetable_t, uint64);
+void vmprint(pagetable_t pagetable);
 uint64          vmfault(pagetable_t, uint64, int);
 #if defined(LAB_PGTBL) || defined(SOL_MMAP)
 void            vmprint(pagetable_t);

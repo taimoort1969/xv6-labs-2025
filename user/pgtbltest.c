@@ -7,14 +7,13 @@
 
 #define SZ (8 * SUPERPGSIZE)
 
-void print_pgtbl();
-void print_kpgtbl();
-void ugetpid_test();
-void superpg_fork();
-void superpg_free();
+void print_pgtbl(void);
+void ugetpid_test(void);
+void superpg_fork(void);
+void superpg_free(void);
 
-int
-main(int argc, char *argv[])
+int print_kpgtbl(void);
+int main(int argc, char *argv[])
 {
   print_pgtbl();
   ugetpid_test();
@@ -41,7 +40,7 @@ print_pte(uint64 va)
     printf("va 0x%lx pte 0x%lx pa 0x%lx perm 0x%lx\n", va, pte, PTE2PA(pte), PTE_FLAGS(pte));
 }
 
-void
+void 
 print_pgtbl()
 {
   printf("print_pgtbl starting\n");
@@ -78,13 +77,8 @@ ugetpid_test()
   printf("ugetpid_test: OK\n");
 }
 
-void
-print_kpgtbl()
-{
-  printf("print_kpgtbl starting\n");
-  kpgtbl();
-  printf("print_kpgtbl: OK\n");
-}
+int print_kpgtbl(void);
+
 
 
 void

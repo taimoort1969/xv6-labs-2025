@@ -178,6 +178,7 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 UPROGS=\
 	$U/_cat\
 	$U/_echo\
+	$U/_pingpong\
 	$U/_forktest\
 	$U/_grep\
 	$U/_init\
@@ -195,8 +196,8 @@ UPROGS=\
 	$U/_logstress\
 	$U/_forphan\
 	$U/_dorphan\
-
-
+        $U/_syscount\
+	$U/_print_kpgtbl\
 
 ifeq ($(LAB),util)
 UPROGS += \

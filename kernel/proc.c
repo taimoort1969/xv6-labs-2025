@@ -125,14 +125,14 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
-  // Allocate a trapframe page.
+  // 1) trapframe
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
   }
 
-  // An empty user page table.
+  // 2) create user pagetable (with trampoline + trapframe)
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
     freeproc(p);
@@ -140,8 +140,38 @@ found:
     return 0;
   }
 
-  // Set up new context to start executing at forkret,
-  // which returns to user space.
+  // 3) allocate usyscall page
+  p->usyscall = kalloc();
+  if(p->usyscall == 0){
+    // tear down pagetable we just made
+    proc_freepagetable(p->pagetable, 0);
+    p->pagetable = 0;
+    kfree((void*)p->trapframe);
+    p->trapframe = 0;
+    p->state = UNUSED;
+    release(&p->lock);
+    return 0;
+  }
+  memset(p->usyscall, 0, PGSIZE);
+
+  // 4) map it at USYSCALL, user, read-only
+  if(mappages(p->pagetable, USYSCALL, PGSIZE,
+              (uint64)p->usyscall, PTE_R | PTE_U | PTE_V) < 0){
+    kfree(p->usyscall);
+    p->usyscall = 0;
+    proc_freepagetable(p->pagetable, 0);
+    p->pagetable = 0;
+    kfree((void*)p->trapframe);
+    p->trapframe = 0;
+    p->state = UNUSED;
+    release(&p->lock);
+    return 0;
+  }
+
+  // write pid in shared page
+  ((struct usyscall*)p->usyscall)->pid = p->pid;
+
+  // context
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
@@ -149,15 +179,20 @@ found:
   return p;
 }
 
+
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
 static void
 freeproc(struct proc *p)
 {
-  if(p->trapframe)
+  if(p->trapframe){
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+}
+    p->usyscall = 0;
+
+
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -212,6 +247,10 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+
+  // free the usyscall physical page too
+  uvmunmap(pagetable, USYSCALL, 1, 1);
+
   uvmfree(pagetable, sz);
 }
 
@@ -233,6 +272,7 @@ userinit(void)
 
 // Shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
+
 int
 growproc(int n)
 {
@@ -241,15 +281,16 @@ growproc(int n)
 
   sz = p->sz;
   if(n > 0){
-    if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
+    // uvmalloc in vm.c already knows how to do superpages
+    if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0)
       return -1;
-    }
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
   p->sz = sz;
   return 0;
 }
+
 
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
@@ -288,6 +329,12 @@ kfork(void)
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
+  // Fix child's usyscall page after copying address space
+  uint64 pa = walkaddr(np->pagetable, USYSCALL);
+  if(pa){
+    np->usyscall = (void*)pa;
+    ((struct usyscall*)np->usyscall)->pid = np->pid;
+  }
 
   release(&np->lock);
 
